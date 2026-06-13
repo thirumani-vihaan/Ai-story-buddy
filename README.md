@@ -46,6 +46,41 @@ The quiz (loaded from [`assets/quiz.json`](assets/quiz.json)):
 
 ---
 
+## Architecture overview
+
+### App architecture
+
+```mermaid
+flowchart TB
+  User[User tap] --> StoryBuddyScreen
+  StoryBuddyScreen --> Controller[StoryBuddyController]
+  Controller --> Tts[TtsService]
+  Controller --> QuizRepo[QuizRepository]
+  QuizRepo --> Assets[assets/quiz.json]
+  Controller --> UI[Story / Quiz UI]
+  UI --> Buddy[BuddyAvatar]
+  UI --> StoryCard[StoryCard]
+  UI --> QuizView[QuizView]
+  StoryBuddyScreen --> Confetti[Confetti]
+  Confetti --> UI
+  Tts --> Native[Platform TTS Engine]
+  Native --> Tts
+```
+
+### Narration state flow
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle
+  idle --> preparing: Read tapped
+  preparing --> reading: onStart
+  reading --> finished: onComplete
+  reading --> idle: onCancel
+  finished --> idle: Play Again
+```
+
+---
+
 ## 1. Framework choice & why — **Flutter**
 
 - **One codebase, true to the audience.** The primary target is mid‑range
