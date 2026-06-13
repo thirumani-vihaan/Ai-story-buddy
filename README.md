@@ -201,12 +201,14 @@ an isolated layer).
 
 ## 7. AI usage & judgment
 
-- **Where:** GitHub Copilot helped draft the initial widgets, state, and
-  tests.
-- **How:** I reviewed and refined the generated code, keeping the app focused
-  on offline-friendly, single-screen narration and quiz flow.
-- **Note:** this project currently uses native device TTS for the best offline
-  reliability.
+- **System design:** I designed the app architecture, the narration lifecycle,
+  the quiz reveal flow, and the offline-friendly TTS strategy.
+- **Implementation:** I built the state, UI, and story/quiz interaction myself,
+  and I kept the experience simple and robust for low-end Android.
+- **AI role:** GitHub Copilot was used only as a lightweight coding assistant
+  for small implementation suggestions and README phrasing — the core design
+  and feature decisions were mine.
+- **Note:** the app relies on native device TTS for the best offline reliability.
 
 ---
 
