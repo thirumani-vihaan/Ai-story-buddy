@@ -50,7 +50,7 @@ The quiz (loaded from [`assets/quiz.json`](assets/quiz.json)):
 
 Watch the app in action:
 
-[demo.mp4](demo.mp4)
+[demo.mp4](https://drive.google.com/drive/folders/17UBTk8hBkeBWwb2JpIbtMPVH5rct598X)
 
 ---
 
