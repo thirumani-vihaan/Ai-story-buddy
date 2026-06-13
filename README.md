@@ -46,6 +46,14 @@ The quiz (loaded from [`assets/quiz.json`](assets/quiz.json)):
 
 ---
 
+## 📹 Demo
+
+Watch the app in action:
+
+[demo.mp4](demo.mp4)
+
+---
+
 ## Architecture overview
 
 ### App architecture
@@ -194,10 +202,6 @@ Watch the frame chart for UI/raster spikes over 16ms. The change that most helpe
 in dev was scoping rebuilds with `select` + adding the `RepaintBoundary` around
 the avatar (before: the spinning gear dirtied the whole screen each frame; after:
 an isolated layer).
-
-> 📸 _Profiling artifact:_ capture a before/after frame‑timing screenshot on a real
-> mid‑range Android and add it here — `docs/perf-before.png` / `docs/perf-after.png`.
-> (It can't be captured in CI / on a machine without the Android toolchain.)
 
 ## 7. AI usage & judgment
 
