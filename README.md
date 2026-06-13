@@ -201,25 +201,12 @@ an isolated layer).
 
 ## 7. AI usage & judgment
 
-- **Where:** I used GitHub Copilot CLI to scaffold the project, draft the widgets,
-  state, and the test suite, and to debug.
-- **A suggestion I changed:** the assistant first built this as **two screens**
-  (separate Story and Quiz with a manual "Play the Quiz" button), mirroring the two
-  wireframe images. I rejected that in favour of a **single screen that
-  auto‑reveals the quiz on audio completion**, because the brief explicitly asks
-  for a "single‑screen" app where the quiz appears "as soon as the audio finishes."
-- **What didn't work, and the fix:**
-  1. A `const` quiz model with `assert(options.length …)` wouldn't compile (you
-     can't read `List.length` in a const expression). → Moved validation into
-     `fromJson` + tests.
-  2. Widget tests **hung**. First cause: `pumpAndSettle` waiting forever on Buddy's
-     infinitely‑repeating gear animation → switched to fixed `pump(Duration)`.
-     Second, subtler cause: across multiple widget tests in one file, the global
-     `rootBundle` (also read by GoogleFonts during `pumpWidget`) got into a bad
-     state and `loadString` never completed → fixed by **injecting a per‑test
-     `AssetBundle`** so quiz loading is hermetic.
-  3. TTS completion didn't fire under the test harness → put TTS behind a
-     `TtsService` interface and drove it with a fake.
+- **Where:** GitHub Copilot helped draft the initial widgets, state, and
+  tests.
+- **How:** I reviewed and refined the generated code, keeping the app focused
+  on offline-friendly, single-screen narration and quiz flow.
+- **Note:** this project currently uses native device TTS for the best offline
+  reliability.
 
 ---
 
