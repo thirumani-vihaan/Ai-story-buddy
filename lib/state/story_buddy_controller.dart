@@ -18,6 +18,7 @@ class StoryBuddyController extends ChangeNotifier {
     required this.tts,
     required this.narration,
     this.quizRepository = const QuizRepository(),
+    this.prefetchManager,
   }) {
     tts
       ..onStart = _handleStarted
@@ -32,6 +33,7 @@ class StoryBuddyController extends ChangeNotifier {
   /// The exact text spoken *and* displayed, so highlight offsets line up.
   final String narration;
   final QuizRepository quizRepository;
+  final dynamic prefetchManager;
 
   // ---- Narration ----
   NarrationStatus _status = NarrationStatus.idle;
@@ -70,6 +72,9 @@ class StoryBuddyController extends ChangeNotifier {
   QuizQuestion? get quiz => _quiz;
   bool get isQuizReady => _quiz != null;
 
+  bool _quizLoadFailed = false;
+  bool get quizLoadFailed => _quizLoadFailed;
+
   bool _quizRevealed = false;
   bool get quizRevealed => _quizRevealed;
 
@@ -91,12 +96,28 @@ class StoryBuddyController extends ChangeNotifier {
 
   /// Loads the question from JSON (our "backend"). Called once at startup.
   Future<void> loadQuiz() async {
+    _quizLoadFailed = false;
     try {
+      // If a prefetch manager has a ready value, use it; otherwise fetch.
+      if (prefetchManager != null) {
+        final next = await prefetchManager.consumePrefetch();
+        if (next != null) {
+          _quiz = next;
+          notifyListeners();
+          return;
+        }
+      }
       _quiz = await quizRepository.loadQuestion();
       notifyListeners();
     } catch (_) {
+      _quizLoadFailed = true;
+      notifyListeners();
       // Keep _quiz null; the story still works and the quiz just won't reveal.
     }
+  }
+
+  Future<void> retryQuiz() async {
+    await loadQuiz();
   }
 
   Future<void> readStory() async {
@@ -201,6 +222,46 @@ class StoryBuddyController extends ChangeNotifier {
     _setStatus(NarrationStatus.idle);
   }
 
+  /// Advance to the next story+quiz pair, preferring a prefetched payload
+  /// when available so swaps feel instant.
+  Future<void> loadNext() async {
+    // Try consuming a background prefetch first.
+    try {
+      final next = await prefetchManager?.consumePrefetch();
+      if (next != null) {
+        _applyNextData(next);
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback: fetch fresh from the repository.
+    try {
+      _quiz = null;
+      notifyListeners();
+      final data = await quizRepository.loadQuestion();
+      _applyNextData(data);
+    } catch (_) {
+      _quizLoadFailed = true;
+      notifyListeners();
+    }
+  }
+
+  void _applyNextData(QuizQuestion data) {
+    _quiz = data;
+    _selectedIndex = null;
+    _lastWrongIndex = null;
+    _wrongAttempts = 0;
+    _solved = false;
+    _quizRevealed = false;
+    _quizLoadFailed = false;
+    notifyListeners();
+
+    // Start prefetch for the following pair.
+    try {
+      prefetchManager?.startPrefetch();
+    } catch (_) {}
+  }
+
   // ---- TTS handlers ----
   void _handleStarted() {
     if (_status == NarrationStatus.preparing) {
@@ -221,6 +282,10 @@ class StoryBuddyController extends ChangeNotifier {
     if (!_quizRevealed) {
       _quizRevealed = true;
       notifyListeners();
+      // Start prefetch for the following pair if available
+      try {
+        prefetchManager?.startPrefetch();
+      } catch (_) {}
     }
   }
 

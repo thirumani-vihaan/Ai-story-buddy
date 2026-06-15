@@ -6,9 +6,10 @@ import '../theme/app_theme.dart';
 /// Pass [leading] (for example a back button on the quiz) to override the
 /// start slot; otherwise just the brand mark and title are shown.
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
-  const AppHeader({super.key, this.leading});
+  const AppHeader({super.key, this.leading, this.actions});
 
   final Widget? leading;
+  final List<Widget>? actions;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -45,6 +46,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
+        ...?actions,
         IconButton(
           tooltip: 'Account',
           icon: const Icon(Icons.account_circle_outlined,

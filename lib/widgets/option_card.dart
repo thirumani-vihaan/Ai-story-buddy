@@ -60,7 +60,7 @@ class _OptionCardState extends State<OptionCard>
       builder: (context, child) {
         // A decaying sine wave gives a natural "no, try again" wobble.
         final t = _shake.value;
-        final dx = math.sin(t * math.pi * 4) * 10 * (1 - t);
+        final dx = math.sin(t * math.pi * 4) * 6 * (1 - t);
         return Transform.translate(offset: Offset(dx, 0), child: child);
       },
       child: _buildCard(),
@@ -96,18 +96,18 @@ class _OptionCardState extends State<OptionCard>
     final dimmed = widget.state == OptionState.disabled;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Material(
         color: background,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(color: border, width: 2),
             ),
             child: Opacity(
@@ -118,8 +118,8 @@ class _OptionCardState extends State<OptionCard>
                     child: Text(
                       widget.label,
                       style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textStrong,
                       ),
                     ),

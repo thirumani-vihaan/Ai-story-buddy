@@ -4,12 +4,17 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/story_content.dart';
+import '../features/app_feature.dart';
+import '../features/feature_registry.dart';
+import '../features/shake_wrapper.dart';
+import '../features/sound_waves_widget.dart';
 import '../state/story_buddy_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import '../widgets/buddy_avatar.dart';
 import '../widgets/option_card.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/rich_quiz_card.dart';
 
 /// The whole experience on one screen. The layout is a fixed column —
 /// Buddy on top, a flexible middle that swaps between the story and the quiz,
@@ -27,6 +32,79 @@ class _StoryBuddyScreenState extends State<StoryBuddyScreen> {
   final ConfettiController _confetti =
       ConfettiController(duration: const Duration(seconds: 1));
   StoryBuddyController? _controller;
+
+  void _showFeatureSettings() {
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (context) {
+        final features = context.watch<FeatureRegistry>();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Feature settings',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Choose what makes AI Story Buddy feel best for you. These options are saved automatically.',
+                style: TextStyle(color: AppColors.textSoft, height: 1.45),
+              ),
+              const SizedBox(height: 18),
+              SwitchListTile(
+                title: const Text('Remote quiz prefetch'),
+                subtitle: const Text(
+                    'Use the network when available and fall back to local data.'),
+                value: features.isEnabled(AppFeature.remoteQuizPrefetch),
+                onChanged: (value) {
+                  features.setEnabled(AppFeature.remoteQuizPrefetch, value);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Animated sound waves'),
+                subtitle: const Text('Glow with audio visualization while reading.'),
+                value: features.isEnabled(AppFeature.animatedSoundWaves),
+                onChanged: (value) {
+                  features.setEnabled(AppFeature.animatedSoundWaves, value);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Wrong answer feedback'),
+                subtitle: const Text('Shake wrong options and keep the quiz lively.'),
+                value: features.isEnabled(AppFeature.wrongAnswerShake),
+                onChanged: (value) {
+                  features.setEnabled(AppFeature.wrongAnswerShake, value);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Rich quiz UI'),
+                subtitle: const Text('Enable the polished quiz card with confetti.'),
+                value: features.isEnabled(AppFeature.richQuizUi),
+                onChanged: (value) {
+                  features.setEnabled(AppFeature.richQuizUi, value);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Buddy motion magic'),
+                subtitle: const Text('Add subtle Buddy movement while story plays.'),
+                value: features.isEnabled(AppFeature.buddyMotionMagic),
+                onChanged: (value) {
+                  features.setEnabled(AppFeature.buddyMotionMagic, value);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -62,11 +140,17 @@ class _StoryBuddyScreenState extends State<StoryBuddyScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final revealed =
-        context.select<StoryBuddyController, bool>((c) => c.quizRevealed);
 
     return Scaffold(
-      appBar: const AppHeader(),
+      appBar: AppHeader(
+        actions: [
+          IconButton(
+            tooltip: 'Feature settings',
+            icon: const Icon(Icons.tune_rounded, color: AppColors.primary),
+            onPressed: _showFeatureSettings,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Stack(
           children: [
@@ -78,27 +162,15 @@ class _StoryBuddyScreenState extends State<StoryBuddyScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _Buddy(size: _buddySize(size.height)),
+                      _Buddy(
+                        size: _buddySize(size.height),
+                        motionEnabled: context
+                            .watch<FeatureRegistry>()
+                            .isEnabled(AppFeature.buddyMotionMagic),
+                      ),
                       const SizedBox(height: 14),
                       Expanded(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 400),
-                          switchInCurve: Curves.easeOut,
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 0.04),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
-                          ),
-                          child: revealed
-                              ? const _QuizView(key: ValueKey('quiz'))
-                              : const _StoryView(key: ValueKey('story')),
-                        ),
+                        child: _buildScreenContent(context),
                       ),
                     ],
                   ),
@@ -132,9 +204,10 @@ class _StoryBuddyScreenState extends State<StoryBuddyScreen> {
 }
 
 class _Buddy extends StatelessWidget {
-  const _Buddy({required this.size});
+  const _Buddy({required this.size, this.motionEnabled = true});
 
   final double size;
+  final bool motionEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -146,8 +219,47 @@ class _Buddy extends StatelessWidget {
       }
       return BuddyMood.idle;
     });
-    return Center(
-      child: RepaintBoundary(child: BuddyAvatar(mood: mood, size: size)),
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOut,
+      padding: EdgeInsets.only(top: motionEnabled && mood == BuddyMood.reading ? 10 : 0),
+      child: Center(
+        child: RepaintBoundary(child: BuddyAvatar(mood: mood, size: size)),
+      ),
+    );
+  }
+}
+
+extension on _StoryBuddyScreenState {
+  Widget _buildScreenContent(BuildContext context) {
+    final c = context.watch<StoryBuddyController>();
+    final features = context.watch<FeatureRegistry>();
+    final quizContent = const _QuizView(key: ValueKey('quiz'));
+    final screenChild = c.quizRevealed
+        ? (features.isEnabled(AppFeature.wrongAnswerShake)
+            ? ShakeWrapper(
+                key: const ValueKey('quiz-shake'),
+                enabled: c.selectedIndex != null && !c.solved && c.lastWrongIndex != null,
+                trigger: c.lastWrongIndex ?? 0,
+                child: quizContent,
+              )
+            : quizContent)
+        : const _StoryView(key: ValueKey('story'));
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      switchInCurve: Curves.easeOut,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      ),
+      child: screenChild,
     );
   }
 }
@@ -158,11 +270,16 @@ class _StoryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<StoryBuddyController>();
+    final features = context.watch<FeatureRegistry>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Expanded(child: _StoryCard()),
         const SizedBox(height: 10),
+        if (c.isNarrating && features.isEnabled(AppFeature.animatedSoundWaves)) ...[
+          const SoundWavesWidget(animate: true),
+          const SizedBox(height: 10),
+        ],
         if (c.isNarrating) ...[
           const _PlaybackBar(),
           const SizedBox(height: 6),
@@ -394,8 +511,11 @@ class _QuizView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<StoryBuddyController>();
+    final features = context.watch<FeatureRegistry>();
     final quiz = c.quiz;
-    if (quiz == null) return const SizedBox.shrink();
+    if (quiz == null) {
+      return _QuizUnavailable(loadFailed: c.quizLoadFailed, onRetry: c.retryQuiz);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -427,14 +547,20 @@ class _QuizView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                for (int i = 0; i < quiz.options.length; i++)
-                  OptionCard(
-                    label: quiz.options[i],
-                    state: _stateFor(c, i),
-                    shouldShake: !c.solved && c.lastWrongIndex == i,
-                    shakeTick: c.wrongAttempts,
-                    onTap: c.solved ? null : () => c.selectOption(i),
-                  ),
+                if (features.isEnabled(AppFeature.richQuizUi))
+                  RichQuizCard(
+                    quiz: quiz,
+                    onSelect: c.solved ? null : (i) => c.selectOption(i),
+                  )
+                else
+                  for (int i = 0; i < quiz.options.length; i++)
+                    OptionCard(
+                      label: quiz.options[i],
+                      state: _stateFor(c, i),
+                      shouldShake: !c.solved && c.lastWrongIndex == i,
+                      shakeTick: c.wrongAttempts,
+                      onTap: c.solved ? null : () => c.selectOption(i),
+                    ),
                 const SizedBox(height: 2),
                 _Feedback(solved: c.solved, triedWrong: c.selectedIndex != null),
               ],
@@ -443,14 +569,72 @@ class _QuizView extends StatelessWidget {
         ),
         if (c.solved) ...[
           const SizedBox(height: 12),
-          PrimaryButton(
-            label: 'Read it Again',
-            icon: Icons.replay_rounded,
-            color: AppColors.accent,
-            foreground: AppColors.primaryDark,
-            onPressed: c.playAgain,
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryButton(
+                  label: 'Read it Again',
+                  icon: Icons.replay_rounded,
+                  color: AppColors.accent,
+                  foreground: AppColors.primaryDark,
+                  onPressed: c.playAgain,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: PrimaryButton(
+                  label: 'Next Story',
+                  icon: Icons.skip_next_rounded,
+                  onPressed: c.loadNext,
+                ),
+              ),
+            ],
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _QuizUnavailable extends StatelessWidget {
+  const _QuizUnavailable({required this.loadFailed, required this.onRetry});
+
+  final bool loadFailed;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.error_outline, size: 56, color: AppColors.wrong),
+        const SizedBox(height: 18),
+        Text(
+          loadFailed
+              ? 'Quiz content failed to load.'
+              : 'The quiz is not ready yet.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textStrong,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Try again to load the quiz. The story is still available while we recover.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.textSoft, height: 1.5),
+        ),
+        const SizedBox(height: 24),
+        PrimaryButton(
+          label: 'Retry quiz',
+          icon: Icons.refresh_rounded,
+          onPressed: () async {
+            await onRetry();
+          },
+        ),
       ],
     );
   }
