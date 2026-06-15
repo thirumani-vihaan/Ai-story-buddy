@@ -16,17 +16,25 @@ engine misbehaves.
 
 1. **Story screen** — Buddy (a friendly robot), the story in a **scrollable
    card**, and a big **"Read Me a Story"** button — all fitted on one screen.
+   Friendly, rounded interface optimized for kids aged 6-10.
 2. **Read aloud + follow along** — text‑to‑speech narrates while the **current
    word is highlighted** and the text **auto‑scrolls** to keep pace. A
    **draggable progress bar** (shown once you tap Read) lets you scrub anywhere —
    the voice and the highlight jump to where you drop it. Includes a *Preparing…*
-   state and graceful failure handling.
+   state and graceful failure handling. Optional animated sound waves visualize
+   the narration.
 3. **Auto‑reveal quiz** — when narration completes, the quiz (rendered from JSON)
-   fades in.
-4. **Interactive quiz** — wrong → the option **shakes** + haptic + "try again";
-   correct → **confetti + Buddy smiles/bounces** and a Success state with a
-   "Read it Again" button.
-5. **Fits any screen** — phone, tablet or laptop: the header, Buddy, story and
+   fades in. Optional **Rich Quiz UI** with polished animations, gradient card
+   design, and smooth state transitions.
+4. **Interactive quiz** — wrong → the option **shakes** (gentler for kids) + haptic
+   + "try again"; correct → **confetti + Buddy smiles/bounces** and a Success
+   state with "Read it Again" and **"Next Story"** buttons for seamless continuation.
+5. **Instant next story** — **Quiz Prefetch Manager** pre-fetches the next quiz
+   while you're reading, so tapping "Next Story" loads instantly with zero delay.
+6. **Feature toggles** — Settings sheet lets kids (or parents) customize: remote
+   quiz prefetch, animated sound waves, wrong-answer feedback shake, polished
+   quiz UI, and Buddy motion magic.
+7. **Fits any screen** — phone, tablet or laptop: the header, Buddy, story and
    button always fit; long content scrolls inside its card.
 
 The story snippet (from the brief):
@@ -61,14 +69,22 @@ Watch the app in action:
 ```mermaid
 flowchart TB
   User[User tap] --> StoryBuddyScreen
+  StoryBuddyScreen --> FeatureReg[FeatureRegistry]
   StoryBuddyScreen --> Controller[StoryBuddyController]
+  FeatureReg -.-> Prefs[(SharedPreferences)]
   Controller --> Tts[TtsService]
+  Controller --> QuizPrefetch[QuizPrefetchManager]
   Controller --> QuizRepo[QuizRepository]
+  QuizRepo --> RemoteQuiz[RemoteQuizRepository]
+  RemoteQuiz --> Network[Network API]
   QuizRepo --> Assets[assets/quiz.json]
   Controller --> UI[Story / Quiz UI]
   UI --> Buddy[BuddyAvatar]
   UI --> StoryCard[StoryCard]
   UI --> QuizView[QuizView]
+  QuizView --> RichQuizCard[RichQuizCard-Optional]
+  QuizView --> SoundWaves[SoundWavesWidget-Optional]
+  QuizView --> ShakeWrapper[ShakeWrapper-Optional]
   StoryBuddyScreen --> Confetti[Confetti]
   Confetti --> UI
   Tts --> Native[Platform TTS Engine]
@@ -220,16 +236,27 @@ an isolated layer).
 
 ```
 lib/
-  main.dart                      App + Provider wiring
+  main.dart                      App + MultiProvider wiring
   theme/app_theme.dart           Colours (#6F2BC2 / #36165E) + Poppins
   models/quiz_question.dart      QuizQuestion + fromJson (data-driven)
   data/
     story_content.dart           The (longer) story to narrate
-    quiz_repository.dart          Loads quiz JSON (injectable AssetBundle)
-  services/tts_service.dart       TtsService interface + FlutterTtsService
+    quiz_repository.dart         Loads quiz JSON (injectable AssetBundle)
+  services/tts_service.dart      TtsService interface + FlutterTtsService
   state/story_buddy_controller.dart   ChangeNotifier: narration + highlight + quiz
+  features/
+    app_feature.dart             Feature enum (remoteQuizPrefetch, richQuizUi, etc.)
+    feature_registry.dart        Persisted feature toggles (SharedPreferences)
+    quiz_prefetch_manager.dart   Background prefetch for instant next story
+    remote_quiz_repository.dart  Network-backed quiz loader with fallback
+    sound_waves_widget.dart      Optional animated sound visualization
+    shake_wrapper.dart           Optional wrong-answer shake effect
   widgets/
-    app_header.dart  buddy_avatar.dart  primary_button.dart  option_card.dart
+    app_header.dart              Top bar with settings button
+    buddy_avatar.dart            Mood-driven robot character
+    primary_button.dart          Large, kid-friendly primary action button (72px)
+    option_card.dart             Quiz option with enhanced touch targets (22px padding)
+    rich_quiz_card.dart          Polished quiz UI with confetti & animations (optional)
   screens/story_buddy_screen.dart      The single, responsive screen (story ⇄ quiz)
 assets/quiz.json                 The backend-shaped quiz payload
 assets/fonts/Poppins-*.ttf       Bundled font (no runtime fetch)
@@ -245,18 +272,70 @@ flutter pub get
 flutter run -d <android-device>
 flutter build apk --release
 
-# Quick preview anywhere:
+# Web (local dev preview):
+flutter run -d web-server --web-port=8084
+# Then open: http://localhost:8084
+
+# Quick preview on Chrome:
 flutter run -d chrome
 ```
+
+### Feature toggles at runtime
+
+1. Tap the **⚙️ settings icon** in the top-right.
+2. Toggle any feature on/off (e.g., Rich Quiz UI, Sound Waves, Buddy Motion).
+3. Changes persist automatically via SharedPreferences.
+4. Hot-reload to see changes instantly during development.
 
 ## ✅ Quality
 
 ```bash
-flutter analyze   # clean
-flutter test      # 15 tests passing (model, controller, widget flow)
+flutter analyze   # static analysis (currently: 5 info-level deprecations, no errors)
+flutter test      # unit + widget tests (model, controller, quiz flow, feature registry)
 ```
+
+**UI Quality:**
+- Kid-friendly aesthetics: large (72px) buttons, 36px border-radius, 20px typography
+- Responsive layout: phone, tablet, desktop all fit in one screen
+- Scoped rebuilds (`select`/`Selector`) for smooth 60fps animations
+- Prefetch Manager eliminates "loading" delays on next story
+- Optional features gracefully degrade if toggled off or unavailable
+
+## 🎛 Feature Registry & Toggles
+
+The app uses a **FeatureRegistry** (persisted via SharedPreferences) to safely
+toggle advanced features on/off. Each feature is opt-in and falls back gracefully:
+
+- **`remoteQuizPrefetch`** — Fetch quizzes from a network API and fallback to
+  `assets/quiz.json` if unavailable. Instant next-story loading via prefetch.
+- **`animatedSoundWaves`** — Render animated sound bars while TTS narrates.
+- **`wrongAnswerShake`** — Shake wrong options (gentler: 6px amplitude, kids-safe).
+- **`richQuizUi`** — Polished quiz card with confetti, animations, gradient design
+  instead of flat option list.
+- **`buddyMotionMagic`** — Subtle Buddy movement while reading (optional motion).
+
+Settings are toggled in a bottom sheet ⚙️ accessible from the header. All choices
+are persisted so they persist across sessions.
+
+### Quiz Prefetch Manager
+
+When narration completes, the controller automatically triggers `startPrefetch()`
+for the next quiz. Tapping "Next Story" consumes the prefetched data instantly —
+zero network delay, smooth UX. Falls back to on-demand fetch if prefetch fails.
+
+### Remote Quiz Repository
+
+Optional network-backed quiz loader. Tries `$apiBaseUrl/api/story-quiz` first,
+falls back to `assets/quiz.json`. Uses exponential backoff and respects HTTP
+cache headers. Resilient to timeouts and malformed responses.
 
 ## 📦 Dependencies
 
-`provider` (state) · `flutter_tts` (narration) · `confetti` (celebration).
+**Core:** `provider` (state) · `flutter_tts` (narration) · `confetti` (celebration)
+· `shared_preferences` (feature persistence).
+
+**Optional features:** `audioplayers` (rich SFX) · `vibration` (haptic feedback) ·
+`http` (remote quiz fetch) · `google_fonts` (typography) · `flutter_bloc` / `flutter_riverpod`
+(external adapters, future).
+
 Poppins is bundled under `assets/fonts/` (no runtime font fetch).
